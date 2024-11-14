@@ -2,8 +2,9 @@
 #### WIP ####
 using Turing
 using Distributions
-using LinearAlgebra: cholesky
+using LinearAlgebra
 using FillArrays: I, Diagonal
+using PDMats
 
 #### Output Struct
 
@@ -17,19 +18,24 @@ end
 #### Model template
 
 @model function correlation_model(
-        x::Vector{Float64}, 
-        y::Vector{Float64},
-        distribution_fun = Normal)
+        X::Matrix{Float64}, 
+        distribution::Distribution)
 
-    N = length(x) #checked to be equal to length(y)
+    N = size(X, 1) 
 
     # Priors for location parameters
-    μ₁ ~ Normal(0, 5)
-    μ₂ ~ Normal(0, 5)
+    μ₁ ~ Normal(mean(X[:,1]), std(X[:,1]) * 2)
+    μ₂ ~ Normal(mean(X[:,2]), std(X[:,2]) * 2)
     
     # Priors for scale parameters
-    σ₁ ~ Exponential(1)
-    σ₂ ~ Exponential(1)
+    #σ₁ ~ Exponential( 1 / (std(X[:,1]) * 2) )
+    #σ₂ ~ Exponential( 1 / (std(X[:,2]) * 2) )
+
+    # Priors for scale parameters (using log-normal instead of exponential for better stability)
+    logσ₁ ~ Normal(0, 1)
+    logσ₂ ~ Normal(0, 1)
+    σ₁ = exp(logσ₁)
+    σ₂ = exp(logσ₂)
     
     # LKJCholesky prior
     L_Ω ~ LKJCholesky(2, 1.0)
@@ -38,149 +44,120 @@ end
     D = Diagonal([σ₁, σ₂])
     L = D * Matrix(L_Ω.L)
     
-    ## Extract correlation from Cholesky factor
-    #Ω = Matrix(L_Ω.L) * Matrix(L_Ω.L)'
-    #ρ = Ω[1,2]  # Store correlation for return
+    # Extract correlation from Cholesky factor
+    Ω = Matrix(L_Ω.L) * Matrix(L_Ω.L)'
+    ρ = Ω[1,2]  # Store correlation for return
 
-    ## Prior for correlation
-    #Ρ ~ LKJ(1, 1.0)
-    
-    ### Construct covariance matrix
-    #σ = [σ₁^2       ρ*σ₁*σ₂;
-    #    ρ*σ₁*σ₂    σ₂^2]
-
-    # Cholesky decomposition
-    #L = cholesky(Σ).L
-
-    #Println(Σ)
-    
-    # Non-centered parameterization
+     #Non-centered parameterization
     z = Matrix{Float64}(undef, N, 2)
     for i in 1:N
         z[i,:] ~ MvNormal(zeros(2), I)
     end
+
+    # Prior for correlation using LKJ
+    #Ω ~ LKJCholesky(2, 2.0)
     
+    ## Construct covariance matrix using Cholesky decomposition
+    #L = LinearAlgebra.LowerTriangular(Ω.L)
+    #D = Diagonal([σ₁, σ₂])
+    #Σ = D * (L * L') * D
+    #Σ = Symmetric(Σ)
+    #ρ = (L * L')[1,2]
+
+    ## Prior for correlation
+    #ρ ~ LKJ(1, 2.0)
+    
+    ### Construct covariance matrix
+    #Σ = [σ₁^2       ρ*σ₁*σ₂;
+    #    ρ*σ₁*σ₂    σ₂^2]
+    
+    X_pred = Matrix(undef, N, 2)
     # Likelihood
     for i in 1:N
         # Transform z to correlated normal
         eps = L * z[i,:]
-        
         # First component
-        x[i] ~ Normal() * σ₁ + μ₁ + eps[1]
-        
+        X[i, 1] ~ distribution * σ₁ + μ₁ + eps[1]
         # Second component
-        y[i] ~ Normal() * σ₂ + μ₂ + eps[2]
+        X[i, 2] ~ distribution * σ₂ + μ₂ + eps[2]
+        #X[i,:] ~ MvNormal([μ₁, μ₂], PDMat(Σ))
+
+        X_pred[i,1] = rand(distribution) * σ₁ + μ₁ + eps[1]
+        X_pred[i,2] = rand(distribution) * σ₁ + μ₁ + eps[2]
     end
 
-end
+    #X_pred = rand(MvNormal([μ₁, μ₂], PDMat(Σ)))
 
-#@model function correlation_model(
-#        x::Vector{Float64}, 
-#        y::Vector{Float64},
-#        distribution_fun = Normal)
-#
-#    N = length(x) #checked to be equal to length(y)
-#
-#    # Priors for location parameters
-#    μ₁ ~ Normal(mean(x), std(x) * 2)
-#    μ₂ ~ Normal(mean(y), std(y) * 2) 
-#    
-#    # Priors for scale parameters
-#    σ₁ ~ Exponential( 1 / (std(x) * 2) )
-#    σ₂ ~ Exponential( 1 / (std(y) * 2) )
-#    
-#    # LKJCholesky prior
-#    L_Ω ~ LKJCholesky(2, 1.0)
-#    
-#    ## Construct scale matrix
-#    D = Diagonal([σ₁, σ₂])
-#    L = D * Matrix(L_Ω.L)
-#    
-#    ## Extract correlation from Cholesky factor
-#    #Ω = Matrix(L_Ω.L) * Matrix(L_Ω.L)'
-#    #ρ = Ω[1,2]  # Store correlation for return
-#
-#    ## Prior for correlation
-#    #Ρ ~ LKJ(1, 1.0)
-#    
-#    ### Construct covariance matrix
-#    #σ = [σ₁^2       ρ*σ₁*σ₂;
-#    #    ρ*σ₁*σ₂    σ₂^2]
-#
-#    # Cholesky decomposition
-#    #L = cholesky(Σ).L
-#
-#    #Println(Σ)
-#    
-#    # Non-centered parameterization
-#    z = Matrix{Float64}(undef, N, 2)
-#    for i in 1:N
-#        z[i,:] ~ MvNormal(zeros(2), I)
-#    end
-#    
-#    # Likelihood
-#    for i in 1:N
-#        # Transform z to correlated normal
-#        eps = L * z[i,:]
-#        
-#        # First component
-#        x[i] ~ distribution_fun() * σ₁ + μ₁ + eps[1]
-#        
-#        # Second component
-#        y[i] ~ distribution_fun() * σ₂ + μ₂ + eps[2]
-#    end
-#
-#end
+    return ρ, X_pred
+
+end
 
 
 #### Function to calculate correlation
 
 function correlate(
-        x::AbstractArray{Float64, 1},
-        y::AbstractArray{Float64, 1};
-        distribution = Normal,
+        X::AbstractMatrix{<:Union{Missing, Float64}},
+        distribution = Normal(),
         ignore_missing::Bool = false,
-        point_estimate::Bool = false,
         samples::Int = 4000,
         chains::Int = 4
         )
 
-    ## Check size
-    if size(x) != size(y)
-        error("The sizes of x and y must be the same.")
+    if size(X, 2) != 2
+        error("Must pass in a two column matrix.")
     end
 
-    ## Handle missing values
-    missing_x = ismissing.(x) 
-    missing_y = ismissing.(y)
-    any_missing = missing_x .| missing_y
-
-    if any(any_missing) 
-        if ignore_missing
-            @warn "Dropping $(sum(any_missing)) missing values"
-        else
-            error("Missing values found in inputs. X: $(sum(missing_x)), Y: $(sum(missing_y))")
-        end
-    end
-
-    x_model = x[.!any_missing]
-    y_model = y[.!any_missing]
+    model_X = handle_missing_values(X; ignore_missing = ignore_missing)
 
     model = correlation_model(
-        x_model,
-        y_model,
+        model_X,
         distribution
     )
 
-    #@info "Sampling...."
-    
-    #chain = sample(
-    #    model,  
-    #    NUTS(), 
-    #    round(Int, samples / chains), 
-    #    chains,
-    #    progress = true) 
-
-    return model
+    @info "Sampling...."
+     
+    chain = maximum_likelihood(model)
+    return chain 
 end
-
+#    chain = sample(
+#        model,  
+#        NUTS(), 
+#        MCMCThreads(),
+#        samples,
+#        chains,
+#        progress = true)
+#
+#    #p = get_params(chain)
+#    x_pred = reduce(hcat, generated_quantities(model, chain))'
+#
+#    return x_pred
+#end
+#    #rho = vec(1.ρ)
+##
+##    return BayesianCorrelation(
+##        rho,
+##        median(rho),
+##        x_pred[:,1],
+##        x_pred[:,2],
+##        chain,
+##        string(Meta.parse(string(distribution)))
+##    )
+##end
+##
+###### Method for x and y
+##
+##function correlate(
+##    x::AbstractVector{<:Union{Missing, Float64}},
+##    y::AbstractVector{<:Union{Missing, Float64}};
+##    kwargs...)
+##
+##    ## Check size
+##    if size(x) != size(y)
+##        error("The sizes of x and y must be the same.")
+##    end
+##
+##    mat = hcat(x, y)
+##
+##    return correlate(mat; kwargs...)
+##end
+##
