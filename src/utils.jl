@@ -1,4 +1,5 @@
 
+#handle missing values for model
 function handle_missing_values(
         X::AbstractMatrix{<:Union{Missing, Float64}};
         ignore_missing::Bool = false
@@ -17,3 +18,8 @@ function handle_missing_values(
     return X[vec(.!missing_rows),:]
 end
 
+#Get bayes factor against a threshold
+function bayes_fator(x::AbstractArray{Float64}, threshold)
+    threshold = Float64(threshold)
+    return sum(x .> threshold) / sum(x .< threshold)
+end

@@ -102,7 +102,6 @@ function t_test(
 
     mu_diff = vec(p.μ₂ .- p.μ₁)
 
-
     return BayesianTTest(
         mu_diff,
         median(mu_diff),
