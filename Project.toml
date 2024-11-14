@@ -1,0 +1,17 @@
+
+name = "BayesianStats"
+uuid = "edf80a36-dbf3-449e-b037-ec14e76cb7d2"
+authors = ["James Alster <jamesalster2@gmail.com>"]
+version = "0.0.1"
+
+[compat]
+julia = "1.11"
+
+[deps]
+Turing = "fce5fe82-541a-59a6-adf8-730c64b5f9a0"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
