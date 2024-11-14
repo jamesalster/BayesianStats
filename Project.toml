@@ -1,14 +1,19 @@
-
 name = "BayesianStats"
 uuid = "edf80a36-dbf3-449e-b037-ec14e76cb7d2"
 authors = ["James Alster <jamesalster2@gmail.com>"]
 version = "0.0.1"
 
-[compat]
-julia = "1.11"
-
 [deps]
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+FillArrays = "1a297f60-69ca-5386-bcde-b61e274b549b"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Turing = "fce5fe82-541a-59a6-adf8-730c64b5f9a0"
+
+[compat]
+Distributions = "0.25.113"
+FillArrays = "1.13.0"
+LinearAlgebra = "1.11.0"
+julia = "1.11"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
