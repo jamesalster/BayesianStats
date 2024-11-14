@@ -19,7 +19,12 @@ function handle_missing_values(
 end
 
 #Get bayes factor against a threshold
-function bayes_fator(x::AbstractArray{Float64}, threshold)
+function bayes_fator(x::AbstractArray{Float64}, threshold::Real; more_than::Bool = true)
     threshold = Float64(threshold)
-    return sum(x .> threshold) / sum(x .< threshold)
+    bf = sum(x .> threshold) / sum(x .< threshold)
+    if more_than
+        return bf
+    else
+        return 1 / bf
+    end
 end
