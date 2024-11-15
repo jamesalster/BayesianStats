@@ -9,8 +9,7 @@ struct BayesianTTest
     point_estimate::Float64
     p_value::Float64
     bayes_factor::Float64
-    x_est::Vector{Float64}
-    y_est::Vector{Float64}
+    p_y_more_than_x::Float64
     posterior_sample::Chains
     distribution::String
 end
@@ -21,17 +20,24 @@ function Base.show(io::IO, ::MIME"text/plain", b::BayesianTTest)
     println("""
     Bayesian T Test:
 
-    Base distribution: $(b.distribution)
+    Distribution used: $(b.distribution)
     Fitted with $(prod(size(b.posterior_sample)[[1,3]])) posterior draws
 
     Estimated difference in means (y - x): $(round(b.point_estimate, digits = 3))
-    Bayes Factor that (y - x) > 0: $(round(b.bayes_factor, digits = 3))
     95% Interval: $(round.(quantile(b.statistic, [0.025, 0.975]), digits = 3))
+
+    Bayes Factor that difference in means (y - x) > 0: $(round(b.bayes_factor, digits = 3))
+    P-value that difference in means (y - x) > 0: $(round(b.p_value, digits = 3)) 
+    P-value that a an population value y > an population value x: $(round(b.p_y_more_than_x, digits = 3)) 
 
     Fields: 
         statistic: the distribution of the difference in means
-        x_est and y_est: predicted population values for x and y
+        point_estimate: the median of that distribution
+        bayes_factor: the bayes factor that difference in means > 0
+        p_value: the probability that the difference in means > 0
+        p_y_more_than_x: the probability that a population value y > a population value x
         posterior_sample: the Turing sample() object
+        distribution: the distribution used in the t-test
     """
     )
 end
@@ -59,12 +65,12 @@ end
     end
 
     # Predicted quantities
-    x_pred = [
+    X_pred = [
         rand(distribution * σ₁ + μ₁); 
         rand(distribution * σ₂ + μ₂)
     ]
 
-    return x_pred
+    return X_pred
 end
 
 #### Function to calculate t_test - this is exported
@@ -99,20 +105,21 @@ function t_test(
         progress = true)
 
     p = get_params(chain)
-    q = reduce(hcat, generated_quantities(model, chain))'
-
     mu_diff = vec(p.μ₂ .- p.μ₁)
+
+    q = reduce(hcat, generated_quantities(model, chain))'
+    pred₁ = q[:,1]
+    pred₂ = q[:,2]
 
     return BayesianTTest(
         mu_diff,
         median(mu_diff),
         bayes_factor(mu_diff, 0),
-        q[:,1],
-        q[:,2],
+        p_value(mu_diff, 0),
+        p_value(pred₂ .- pred₁, 0),
         chain,
         string(Meta.parse(string(distribution)))
     )
-
 end
 
 #### Method for x and y
@@ -127,7 +134,5 @@ function t_test(
         error("The sizes of x and y must be the same.")
     end
 
-    mat = hcat(x, y)
-
-    return t_test(mat; kwargs...)
+    return t_test(hcat(x, y); kwargs...)
 end
