@@ -7,8 +7,8 @@ using Distributions
 struct BayesianTTest
     statistic::Vector{Float64}
     point_estimate::Float64
-    p_value::Float64
     bayes_factor::Float64
+    p_value::Float64
     p_y_more_than_x::Float64
     posterior_sample::Chains
     distribution::String
@@ -37,7 +37,7 @@ function Base.show(io::IO, ::MIME"text/plain", b::BayesianTTest)
         p_value: the probability that the difference in means > 0
         p_y_more_than_x: the probability that a population value y > a population value x
         posterior_sample: the Turing sample() object
-        distribution: the distribution used in the t-test
+        distribution: the distribution used in the test
     """
     )
 end

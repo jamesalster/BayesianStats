@@ -1,7 +1,7 @@
 
 #handle missing values for model
 function handle_missing_values(
-        X::AbstractMatrix{<:Union{Missing, Float64}};
+        X::AbstractMatrix{<:Union{Missing, Real}};
         ignore_missing::Bool = false
     )::Matrix{Float64}
 
