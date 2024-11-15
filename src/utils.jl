@@ -1,22 +1,23 @@
 
-#handle missing values for model
+#handle missing values
 function handle_missing_values(
-        X::AbstractMatrix{<:Union{Missing, Real}};
+        X::AbstractArray{T,N} where {T <: Union{Missing, Real}, N};
         ignore_missing::Bool = false
-    )::Matrix{Float64}
-
-    missing_rows = mapslices(ismissing, X; dims = 2)
-
-    if any(missing_rows) 
-        if ignore_missing
-            @warn "Dropping $(sum(any_missing)) missing values"
-        else
-            error("$(sum(any_missing)) missing values found in input. Pass ignore_missing = true")
-        end
+    )
+    missing_count = count(ismissing, X)
+    
+    if missing_count > 0
+        ignore_missing || error("$missing_count missing values found. Set ignore_missing=true to proceed")
+        @warn "Dropping $missing_count missing values"
     end
-
-    return X[vec(.!missing_rows),:]
+    
+    if X isa Vector
+        return collect(skipmissing(X))
+    else  # Matrix case
+        return X[.!vec(any(ismissing, X, dims=2)), :]
+    end
 end
+
 
 #Get bayes factor against a threshold
 function bayes_factor(x::AbstractArray{Float64}, threshold::Real; more_than::Bool = true)
