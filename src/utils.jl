@@ -22,9 +22,13 @@ end
 function bayes_fator(x::AbstractArray{Float64}, threshold::Real; more_than::Bool = true)
     threshold = Float64(threshold)
     bf = sum(x .> threshold) / sum(x .< threshold)
-    if more_than
-        return bf
-    else
-        return 1 / bf
-    end
+    return more_than ? bf : (1 / bf)
 end
+
+function p_value(x::AbstractArray{Float64}, threshold::Real; more_than::Bool = true)
+    threshold = Float64(threshold)
+    p_value = sum(x .> threshold) / length(x)
+    return more_than ? p_value : (1 - p_value)
+end
+
+

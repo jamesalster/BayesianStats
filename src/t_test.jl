@@ -7,6 +7,7 @@ using Distributions
 struct BayesianTTest
     statistic::Vector{Float64}
     point_estimate::Float64
+    p_value::Float64
     bayes_factor::Float64
     x_est::Vector{Float64}
     y_est::Vector{Float64}
