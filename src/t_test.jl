@@ -16,6 +16,10 @@ end
 
 #### Pretty print for that
 
+function Base.show(io::IO, b::BayesianTTest)
+     print(io, "BayesianTTest")
+end
+
 function Base.show(io::IO, ::MIME"text/plain", b::BayesianTTest)
     println("""
     Bayesian T Test:

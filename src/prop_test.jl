@@ -15,6 +15,10 @@ end
 
 #### Pretty print for that
 
+function Base.show(io::IO, b::BayesianPropTest)
+     println(io, "BayesianPropTest")
+end
+
 function Base.show(io::IO, ::MIME"text/plain", b::BayesianPropTest)
     println("""
     Bayesian Proportions Test:
