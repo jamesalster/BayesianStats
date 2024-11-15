@@ -24,7 +24,7 @@ function Base.show(io::IO, ::MIME"text/plain", b::BayesianKSTest)
     Bayesian KS Test:
 
     Method: Booststrap with Dirichlet Weights
-    Fitted with $(b.samples) posterior draws
+    Fitted with $(b.samples) bootstrap samples
 
     Bayes Factor that y and x come from a different distribution: $(round(b.bayes_factor, digits = 3))
     Probability that y and x come from a different distribution: $(round(b.p_value, digits = 3)) 
@@ -121,6 +121,6 @@ end
 
 #### Method for matrix
 
-function ks_test(X::AbstractMatrix{<:Union{Missing, Float64}}; kwargs...)::BayesianKSTest
+function ks_test(X::AbstractMatrix{<:Union{Missing, Real}}; kwargs...)::BayesianKSTest
     return ks_test(X[:,1], X[:,2]; kwargs...)
 end
