@@ -38,54 +38,51 @@ end
 #### Model template
 
 @model function t_test_model(
-        X::Matrix{Float64}, 
+        X::Vector{Float64}, 
+        Y::Vector{Float64}, 
         distribution::Distribution)
 
-    N = size(X, 1) 
+    N_x = length(X)
+    N_y = length(Y)
 
     # Priors for location parameters
-    μ₁ ~ Normal(mean(X[:,1]), std(X[:,1]) * 2)
-    μ₂ ~ Normal(mean(X[:,2]), std(X[:,2]) * 2)
+    μ₁ ~ Normal(mean(X), std(X) * 2)
+    μ₂ ~ Normal(mean(Y), std(Y) * 2)
     
     # Priors for scale parameters
-    σ₁ ~ Exponential( 1 / (std(X[:,1]) * 2) )
-    σ₂ ~ Exponential( 1 / (std(X[:,2]) * 2) )
+    σ₁ ~ Exponential( 1 / (std(X) * 2) )
+    σ₂ ~ Exponential( 1 / (std(Y) * 2) )
 
     # Likelihood
-    for i in 1:N
-        X[i,1] ~ distribution * σ₁ + μ₁
-        X[i,2] ~ distribution * σ₂ + μ₂
+    for i in 1:N_x
+        X[i] ~ distribution * σ₁ + μ₁
+    end
+    for i in 1:N_y
+        Y[i] ~ distribution * σ₂ + μ₂
     end
 
     # Predicted quantities
-    x_pred = [
-        rand(distribution * σ₁ + μ₁); 
-        rand(distribution * σ₂ + μ₂)
-    ]
+    x_pred = rand(distribution * σ₁ + μ₁)
+    y_pred = rand(distribution * σ₂ + μ₂)
 
-    return x_pred
+    return [x_pred; y_pred]
 end
 
 #### Function to calculate t_test - this is exported
 
 function t_test(
-        X::AbstractMatrix{<:Union{Missing, Float64}};
+        X::AbstractVector{<:Union{Missing, Float64}},
+        Y::AbstractVector{<:Union{Missing, Float64}};
         distribution::Distribution = Normal(),
         ignore_missing::Bool = false,
         samples::Int = 4000,
         chains::Int = 4
         )::BayesianTTest
     
-    if size(X, 2) != 2
-        error("Must pass in a two column matrix.")
-    end
-
     model_X = handle_missing_values(X; ignore_missing = ignore_missing)
+    model_Y = handle_missing_values(Y; ignore_missing = ignore_missing)
 
-    model = t_test_model(
-        model_X,
-        distribution
-    )
+    model = t_test_model(model_X, model_Y, distribution; samples = samples)
 
     @info "Sampling...."
     
@@ -94,11 +91,10 @@ function t_test(
         NUTS(), 
         MCMCThreads(),
         round(Int, samples / chains), 
-        chains,
-        progress = true)
+        chains)
 
     p = get_params(chain)
-    q = reduce(hcat, generated_quantities(model, chain))'
+    preds = reduce(hcat, generated_quantities(model, chain))'
 
     mu_diff = vec(p.μ₂ .- p.μ₁)
 
@@ -106,27 +102,20 @@ function t_test(
         mu_diff,
         median(mu_diff),
         bayes_factor(mu_diff, 0),
-        q[:,1],
-        q[:,2],
+        preds[:,1],
+        preds[:,2],
         chain,
         string(Meta.parse(string(distribution)))
     )
 
 end
 
-#### Method for x and y
+#### Method for 2-column Matrix
 
 function t_test(
-    x::AbstractVector{<:Union{Missing, Float64}},
-    y::AbstractVector{<:Union{Missing, Float64}};
+    X::AbstractMatrix{<:Union{Missing, Float64}};
     kwargs...)
 
-    ## Check size
-    if size(x) != size(y)
-        error("The sizes of x and y must be the same.")
-    end
-
-    mat = hcat(x, y)
-
-    return t_test(mat; kwargs...)
+    @info "Matrix passed to t_test(): Column 1 will be taken as X and Column 2 will be taken as Y."
+    return t_test(X[:,1], X[:,2]; kwargs...)
 end

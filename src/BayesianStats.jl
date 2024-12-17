@@ -4,9 +4,9 @@ module BayesianStats
 #Convenience functions
 include("utils.jl")
 
-include("correlate.jl")
+#include("correlate.jl")
 include("t_test.jl")
 
-export correlate, t_test, bayes_factor
+export t_test, bayes_factor
 
 end
