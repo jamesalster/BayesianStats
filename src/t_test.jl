@@ -20,7 +20,7 @@ function Base.show(io::IO, ::MIME"text/plain", b::BayesianTTest)
     println("""
     Bayesian T Test:
 
-    Base distribution: $(b.distribution)
+    Model Distribution: $(b.distribution)
     Fitted with $(prod(size(b.posterior_sample)[[1,3]])) posterior draws
 
     Estimated difference in means (y - x): $(round(b.point_estimate, digits = 3))
