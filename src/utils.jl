@@ -3,11 +3,17 @@ using Random
 
 #handle missing values for model, vector
 function handle_missing_values(
-        X::AbstractVector{<:Union{Missing, Float64}};
+        X::Union{AbstractVector, AbstractMatrix};
         ignore_missing::Bool = false
-    )::Vector{Float64}
+    )::Union{AbstractVector, AbstractMatrix}
 
-    missing_rows = ismissing.(X)
+    missing_rows = vec(any(ismissing, X; dims = 2))
+
+    if X isa AbstractVector
+        no_missing = X[.!missing_rows]
+    elseif X isa AbstractMatrix
+        no_missing = X[.!missing_rows, :]
+    end
 
     if any(missing_rows) 
         if ignore_missing
@@ -17,7 +23,7 @@ function handle_missing_values(
         end
     end
 
-    return X[.!missing_rows]
+    return no_missing
 end
 
 #Get bayes factor against a threshold

@@ -85,25 +85,20 @@ end
 #### Function to calculate correlation
 
 function correlate(
-        x::AbstractArray{Float64, 1},
-        y::AbstractArray{Float64, 1};
+        X::AbstractMatrix{Float64};
         distribution::Distribution = Normal(),
         ignore_missing::Bool = false,
         samples::Int = 4000,
         chains::Int = 4
         )
 
-    if length(x) != length(y)
-        error("x and y must be the same length")
+    if size(X, 2) != 2
+        error("Must pass correlate() a 2-column matrix")
     end
 
-    x_model = handle_missing_values(x; ignore_missing = ignore_missing)
-    y_model = handle_missing_values(y; ignore_missing = ignore_missing)
+    X_model = handle_missing_values(X; ignore_missing = ignore_missing)
 
-    model = correlation_model(
-        [x_model y_model],
-        distribution
-    )
+    model = correlation_model(X_model, distribution)
 
     @info "Sampling..."
 
@@ -135,11 +130,15 @@ function correlate(
 
 end
 
-#### Method for Matrix
+#### Method for 2 vectors
 function correlate(
-    X::AbstractMatrix{<:Union{Missing, Float64}};
+    x::AbstractVector{<:Union{Missing, Float64}};
+    y::AbstractVector{<:Union{Missing, Float64}},
     kwargs...)
 
-    @info "Matrix passed to correlate(): Column 1 will be taken as X and Column 2 will be taken as Y."
-    return correlate(X[:,1], X[:,2]; kwargs...)
+    if length(x) != length(y)
+        error("x and y must be the same length")
+    end
+
+    return correlate([x y]; kwargs...)
 end
