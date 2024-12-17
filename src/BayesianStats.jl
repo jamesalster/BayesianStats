@@ -8,7 +8,7 @@ include("utils.jl")
 include("t_test.jl")
 include("correlate.jl")
 
-export bayes_factor
+export bayes_factor, bootstrap
 export t_test
 export correlate
 
