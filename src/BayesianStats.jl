@@ -12,3 +12,4 @@ export bayes_factor
 export t_test
 export correlate
 
+end
