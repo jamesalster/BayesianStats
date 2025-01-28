@@ -24,7 +24,7 @@ function Base.show(io::IO, ::MIME"text/plain", b::BayesianTTest)
     Fitted with $(prod(size(b.posterior_sample)[[1,3]])) posterior draws
 
     Estimated difference in means (y - x): $(round(b.point_estimate, digits = 3))
-    Bayes Factor that (y - x) > 0: $(round(b.bayes_factor, digits = 3))
+    Bayes Factor difference in means (y - x) > 0: $(round(b.bayes_factor, digits = 3))
     95% Interval: $(round.(quantile(b.statistic, [0.025, 0.975]), digits = 3))
 
     Fields: 
