@@ -40,56 +40,69 @@ end
 #### Model template
 
 @model function correlation_model(
-        X::Matrix{Float64}, 
-        distribution::Distribution)
+        X::Matrix{Float64},
+        distribution_string::String,
+        df::Int64
+    )
+
+    N, D = size(X)  # D should be 2
     
-    N, D = size(X)  # D should be 2 in this case
-    
-    # Pre-compute statistics once
+    # Calculate basic statistics
     X_means = vec(mean(X, dims=1))
     X_stds = vec(std(X, dims=1))
     
-    # Vectorized priors for location and scale
+    # Priors for means and standard deviations
     μ ~ MvNormal(X_means, X_stds)
     σ ~ filldist(Exponential(0.5), D)
     
-    # LKJCholesky prior
-    L_Ω ~ LKJCholesky(2, 4.0)
+#    # Prior for correlation using LKJCholesky
+#    L_Ω ~ LKJCholesky(2, 4.0)
+#    
+#    # Construct covariance matrix
+#    L = Diagonal(σ) * Matrix(L_Ω.L)
+#    Σ = L * L'
+#    
+#    # Extract correlation
+#    Ω = Matrix(L_Ω.L) * Matrix(L_Ω.L)'
+#    ρ = Ω[1,2]
+
+    #ρ ~ Uniform(0, 1)
+    #ρ ~ Beta(2, 2)
+    z ~ Normal(0, 0.5)  # z-score on Fisher transform
+    ρ = clamp(tanh(z), -0.999, 0.999)  # transforms back to (-1,1)
+
+    Σ = [σ[1]^2       ρ*σ[1]*σ[2];
+        ρ*σ[1]*σ[2]  σ[2]^2]
     
-    # Construct scale matrix and transform - done once
-    L = Diagonal(σ) * Matrix(L_Ω.L)
-    
-    # Extract correlation if needed
-    Ω = Matrix(L_Ω.L) * Matrix(L_Ω.L)'
-    ρ = Ω[1,2]
-    
-    # Non-centered parameterization - vectorized
-    z ~ filldist(MvNormal(zeros(2), I), N)
-    
-    # Transform all z at once
-    ϵ = L * z
-    
-    # Likelihood using the passed distribution
-    for i in 1:N
-        X[i,1] ~ distribution * σ[1] + μ[1] + ϵ[1,i]
-        X[i,2] ~ distribution * σ[2] + μ[2] + ϵ[2,i]
+    # Single multivariate normal for all observations
+    if distribution_string == "MvNormal"
+        model_distribution = MvNormal(μ, Σ)
+    elseif distribution_string == "MvTDist"
+        model_distribution = MvTDist(df, μ, Σ)
     end
 
-    # Generate predictions
-    X_pred = rand(distribution, N, 2) .* σ' .+ μ' + ϵ'
+    for i in 1:N
+        X[i,:] ~ model_distribution
+    end
 
+    if distribution_string == "MvNormal"
+        X_pred = rand(MvNormal(μ, Σ), N)'
+    elseif distribution_string == "MvTDist"
+        X_pred = rand(MvTDist(df, μ, Σ), N)'
+    end
+    
     return (ρ=ρ, X_pred=X_pred)
 end
-
 
 #### Function to calculate correlation
 
 function correlate(
         X::AbstractMatrix{Float64};
-        distribution::Distribution = Normal(),
+        distribution::String = "MvNormal", #pass as string
         ignore_missing::Bool = false,
         samples::Int = 4000,
-        chains::Int = 4
+        chains::Int = 4,
+        df = 2
         )
 
     if size(X, 2) != 2
@@ -98,7 +111,11 @@ function correlate(
 
     X_model = handle_missing_values(X; ignore_missing = ignore_missing)
 
-    model = correlation_model(X_model, distribution)
+    if ! in(distribution, ["MvNormal", "MvTDist"])
+        error("Distribution must be one of \"MvNormal\" or \"MvTDist\"")
+    end
+
+    model = correlation_model(X_model, distribution, df)
 
     @info "Sampling..."
 
