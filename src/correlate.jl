@@ -41,7 +41,7 @@ end
 
 @model function correlation_model(
         X::Matrix{Float64},
-        distribution_string::String,
+        distribution::Symbol,
         df::Int64
     )
 
@@ -55,19 +55,8 @@ end
     μ ~ MvNormal(X_means, X_stds)
     σ ~ filldist(Exponential(0.5), D)
     
-#    # Prior for correlation using LKJCholesky
-#    L_Ω ~ LKJCholesky(2, 4.0)
-#    
-#    # Construct covariance matrix
-#    L = Diagonal(σ) * Matrix(L_Ω.L)
-#    Σ = L * L'
-#    
-#    # Extract correlation
-#    Ω = Matrix(L_Ω.L) * Matrix(L_Ω.L)'
-#    ρ = Ω[1,2]
-
-    #ρ ~ Uniform(0, 1)
-    #ρ ~ Beta(2, 2)
+    #A bit awkward this prior but the distribution does look appropriate and it's super fast
+    # and claude thinks it's great because it's easy to compute the gradient
     z ~ Normal(0, 0.5)  # z-score on Fisher transform
     ρ = clamp(tanh(z), -0.999, 0.999)  # transforms back to (-1,1)
 
@@ -75,9 +64,9 @@ end
         ρ*σ[1]*σ[2]  σ[2]^2]
     
     # Single multivariate normal for all observations
-    if distribution_string == "MvNormal"
+    if distribution === :MvNormal
         model_distribution = MvNormal(μ, Σ)
-    elseif distribution_string == "MvTDist"
+    elseif distribution === :MvTDist
         model_distribution = MvTDist(df, μ, Σ)
     end
 
@@ -85,9 +74,9 @@ end
         X[i,:] ~ model_distribution
     end
 
-    if distribution_string == "MvNormal"
+    if distribution === :MvNormal
         X_pred = rand(MvNormal(μ, Σ), N)'
-    elseif distribution_string == "MvTDist"
+    elseif distribution === :MvTDist
         X_pred = rand(MvTDist(df, μ, Σ), N)'
     end
     
@@ -98,11 +87,11 @@ end
 
 function correlate(
         X::AbstractMatrix{Float64};
-        distribution::String = "MvNormal", #pass as string
+        distribution::Symbol = :MvTDist, #pass as string
         ignore_missing::Bool = false,
         samples::Int = 4000,
         chains::Int = 4,
-        df = 2
+        t_dist_df::Int = 2 #for Student Only
         )
 
     if size(X, 2) != 2
@@ -111,11 +100,11 @@ function correlate(
 
     X_model = handle_missing_values(X; ignore_missing = ignore_missing)
 
-    if ! in(distribution, ["MvNormal", "MvTDist"])
-        error("Distribution must be one of \"MvNormal\" or \"MvTDist\"")
+    if ! in(distribution, [:MvNormal, :MvTDist])
+        error("Distribution must be one of :MvNormal or :MvTDist")
     end
 
-    model = correlation_model(X_model, distribution, df)
+    model = correlation_model(X_model, distribution, t_dist_df)
 
     @info "Sampling..."
 
@@ -149,8 +138,8 @@ end
 
 #### Method for 2 vectors
 function correlate(
-    x::AbstractVector{<:Union{Missing, Float64}};
-    y::AbstractVector{<:Union{Missing, Float64}},
+    x::AbstractVector{<:Union{Missing, Float64}},
+    y::AbstractVector{<:Union{Missing, Float64}};
     kwargs...)
 
     if length(x) != length(y)

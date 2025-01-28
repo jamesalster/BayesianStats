@@ -9,7 +9,7 @@ using FillArrays: I, Diagonal
 
 #### Model template
 
-@model function correlation_model_abstract(
+@model function correlation_model_general(
         X::Matrix{Float64}, 
         distribution::Distribution)
     
@@ -54,7 +54,7 @@ end
 
 #### Function to calculate correlation
 
-function correlate_abstract(
+function correlate_general(
         X::AbstractMatrix{Float64};
         distribution::Distribution = Normal(),
         ignore_missing::Bool = false,
@@ -68,7 +68,7 @@ function correlate_abstract(
 
     X_model = handle_missing_values(X; ignore_missing = ignore_missing)
 
-    model = correlation_model_abstract(X_model, distribution)
+    model = correlation_model_general(X_model, distribution)
 
     @info "Sampling..."
 
@@ -101,14 +101,14 @@ function correlate_abstract(
 end
 
 #### Method for 2 vectors
-function correlate_abstract(
-    x::AbstractVector{<:Union{Missing, Float64}};
-    y::AbstractVector{<:Union{Missing, Float64}},
+function correlate_general(
+    x::AbstractVector{<:Union{Missing, Float64}},
+    y::AbstractVector{<:Union{Missing, Float64}};
     kwargs...)
 
     if length(x) != length(y)
         error("x and y must be the same length")
     end
 
-    return correlate_abstract([x y]; kwargs...)
+    return correlate_general([x y]; kwargs...)
 end
